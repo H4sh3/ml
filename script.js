@@ -1,32 +1,72 @@
 let p
-let data
+let points
+let p1, p2
+let errorGraph
+let numOfPoints
+let dataIndex
+let currentP1
+let currentP2
 
 setup = () => {
     createCanvas(500, 500)
     background(120)
-    p = new Perceptron(2);
-
-    data = []
-    for (let i = 0; i < 1000; i++) {
-        data.push([random(500), random(500)])
+    p = new Perceptron(3);
+    numOfPoints = 100
+    points = []
+    for (let i = 0; i < numOfPoints; i++) {
+        points.push(new Point(random(1), random(1)))
     }
+    frameRate(60)
+    p1 = new Point(0,0)
+    p2 = new Point(width, 0)
+    errorGraph = []
+    dataIndex = 0
 
+    currentP1 = new Point(0,guessY(0))
+    currentP2 = new Point(1,guessY(width))
 }
 
-
-
 draw = () => {
-    draw_data(data)
+    background(100)
+    draw_data(points)
 
     // training
-    let target = 0
-    let point = [random(500), random(500)]
-    if ((point[0] > point[1])) {
-        target = 1
-    } else {
-        target = -1
+    //let point = new Point(random(500), random(500))
+    let point = points[dataIndex%numOfPoints]
+    dataIndex+=1
+    let target = fxn(point.x) > point.y ? 1 : -1
+
+    //console.log(point.getArray())
+    p.train(point.getArray(), target)
+    p1.y = fxn(p1.x)
+    p2.y = fxn(p2.x)
+    line(p1.getX(), p1.getY(), p2.getX(), p2.getY())
+
+    // current
+    currentP1.y = guessY(0)
+    currentP2.y = guessY(1)
+    line(currentP1.getX(),currentP1.getY(),currentP2.getX(),currentP2.getY())
+
+    drawErrorGraph()
+}
+
+drawErrorGraph = () => {
+    fill(255)
+    rect(0, height - 50, 100, 50)
+    let i = 0
+    for (let e in errorGraph) {
+        fill(0)
+        rect(map(i, 0, errorGraph.length, 0, 100), height - 50 + map(errorGraph[e], 0, numOfPoints, 50, 0), 1, 1)
+        i += 1
     }
-    p.train(point, target)
+}
+
+guessY = (x) => {
+    let w0 = p.weights[0]
+    let w1 = p.weights[1]
+    let w2 = p.weights[2]
+
+    return -(w2/w1)-(w0/w1)*x
 }
 
 
@@ -34,13 +74,12 @@ draw = () => {
 class Perceptron {
     constructor() {
         this.weights = []
-        this.lr = 0.01
+        this.lr = 0.001
         this.hidden_layer = 3
         this.initWeights()
     }
 
     think(input) {
-        input = normalize_point(input)
         let sum = 0;
         if (input.length != this.weights.length) {
             console.error("error, wrong input length", input.length, this.weights.length)
@@ -50,15 +89,12 @@ class Perceptron {
         for (let i = 0; i < input.length; i++) {
             sum += input[i] * this.weights[i]
         }
-        
         return sign(sum)
     }
 
     train = (input, target) => {
         let output = this.think(input)
         let error = target - output
-        input = normalize_point(input)
-
         for (let i = 0; i < this.weights.length; i++) {
             let deltaW = error * input[i] * this.lr
             this.weights[i] += deltaW
@@ -70,29 +106,26 @@ class Perceptron {
             this.weights.push(random(-1, 1))
         }
     }
+
 }
 
-draw_data = (data) => {
 
-    // neural networks guess
-    for (let i = 0; i < data.length; i++) {
-        let output = p.think(data[i])
-        // let target = data[i][0] > data[i][1]
-        let target = data[i][0] > data[i][1]
-        if(target){
-            stroke(0,255,0)
-        }else{
-            stroke(255,0,0)
+fxn = (x) => {
+    return 0.3*x + 0.2
+}
+
+draw_data = (points) => {
+    let numOfErrors = 0
+    for (let i = 0; i < points.length; i++) {
+        let output = p.think(points[i].getArray())
+        let target = fxn(points[i].x) > points[i].y ? 1 : -1
+        if (output === target) {
+            fill(0, 255, 0)
+        } else {
+            numOfErrors += 1
+            fill(255, 0, 0)
         }
-
-        // correct guess
-        
-        if (output == target) {
-            fill(0,255,0)
-        }else{
-            fill(255,0,0)
-        }
-
-        ellipse(data[i][0], data[i][1], 6, 6)
+        ellipse(points[i].getX(), points[i].getY(), 10, 10)
     }
+    errorGraph.push(numOfErrors)
 }
